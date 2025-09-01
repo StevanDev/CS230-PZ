@@ -1,0 +1,60 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api-gateway:
+    build: ./gateway
+    environment:
+      - DOWNSTREAM_PRODUCTS_URL=http://product_service:5001
+      - DOWNSTREAM_ORDERS_URL=http://order_service:5002
+      - DOWNSTREAM_USERS_URL=http://user_service:5003
+      - AUTH_SECRET=supersecret-change-me
+      - FRONTEND_ORIGIN=http://localhost:5173
+    ports:
+      - "8000:8000"
+    depends_on:
+      - product_service
+      - order_service
+      - user_service
+      - redis
+
+  product_service:
+    build: ./product_service
+    environment:
+      - DATABASE_URL=sqlite:////data/app.db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - product_data:/data
+    depends_on:
+      - redis
+
+  order_service:
+    build: ./order_service
+    environment:
+      - DATABASE_URL=sqlite:////data/app.db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PRODUCT_BASE_URL=http://product_service:5001
+    volumes:
+      - order_data:/data
+    depends_on:
+      - redis
+      - product_service
+
+  user_service:
+    build: ./user_service
+    environment:
+      - DATABASE_URL=sqlite:////data/app.db
+      - ADMIN_EMAIL=admin@gmail.com
+      - ADMIN_NAME=admin
+      - ADMIN_PASSWORD=admin
+    volumes:
+      - user_data:/data
+
+volumes:
+  product_data:
+  order_data:
+  user_data:
